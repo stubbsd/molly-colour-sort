@@ -8,7 +8,8 @@
     if(a===b)return 0;const A=s.t[a],B=s.t[b];if(!A.length||B.length>=CAP)return 0;
     const c=A[A.length-1];
     if(s.side[b]&&s.claim[b]&&s.claim[b]!==c)return 0;
-    if(B.length&&B[B.length-1]!==c)return 0;
+    // any colour may go onto any colour (inner tubes); side tubes keep their one-colour claim
+    if(s.side[b]&&B.length&&B[B.length-1]!==c)return 0;
     return Math.min(topRun(A),CAP-B.length);
   }
   function pour(s,a,b){const n=canPour(s,a,b);if(!n)return null;const r=clone(s);const c=s.t[a].slice(-1);
@@ -20,14 +21,18 @@
     if(!B.length&&s.side[a]&&s.side[b])return true;
     if(/^(.)\1*$/.test(A)&&A.length===CAP)return true; // never break a finished tube
     return false;}
-  function solve(start,limit){limit=limit||300000;const seen=new Set();let nodes=0;const path=[];
-    function dfs(s){if(solved(s))return true;if(++nodes>limit)return false;const k=key(s);if(seen.has(k))return false;seen.add(k);
+  // Search: first only "tidy" moves (onto empty or matching colour) — always legal under the new free rule too;
+  // if that fails (e.g. the player has mixed colours), search all legal moves with a depth cap.
+  function search(start,limit,strict,maxDepth){const seen=new Set();let nodes=0;const path=[];
+    function dfs(s,d){if(solved(s))return true;if(++nodes>limit||d>maxDepth)return false;const k=key(s);if(seen.has(k))return false;seen.add(k);
       const moves=[];for(let a=0;a<s.t.length;a++)for(let b=0;b<s.t.length;b++){const n=canPour(s,a,b);if(!n||useless(s,a,b,n))continue;
-        const B=s.t[b];let sc=0;if(B.length)sc+=10+B.length;if(n===topRun(s.t[a])&&s.t[a].length>n)sc+=3;if(s.side[b])sc+=1;if(!B.length)sc-=2;moves.push([sc,a,b]);}
+        const A=s.t[a],B=s.t[b],c=A[A.length-1],match=!B.length||B[B.length-1]===c;if(strict&&!match)continue;
+        let sc=0;if(B.length&&match)sc+=10+B.length;if(!match)sc-=20;if(n===topRun(A)&&A.length>n)sc+=3;if(s.side[b])sc+=1;if(!B.length)sc-=2;moves.push([sc,a,b]);}
       moves.sort((x,y)=>y[0]-x[0]);
-      for(const[,a,b] of moves){path.push([a,b]);if(dfs(pour(s,a,b)))return true;path.pop();if(nodes>limit)return false;}
+      for(const[,a,b] of moves){path.push([a,b]);if(dfs(pour(s,a,b),d+1))return true;path.pop();if(nodes>limit)return false;}
       return false;}
-    const ok=dfs(start);return ok?path.slice():null;}
+    return dfs(start,0)?path.slice():null;}
+  function solve(start,limit){limit=limit||300000;return search(start,limit,true,400)||search(start,limit,false,120);}
   function fromLevel(L){const t=L.c.slice(),side=t.map(()=>false),claim=t.map(()=>null);t.push('','');side.push(true,true);claim.push(null,null);return{t,side,claim};}
   const api={CAP,canPour,pour,solved,solve,fromLevel,clone,topRun};
   if(typeof module!=='undefined')module.exports=api;else root.Rules=api;
