@@ -1,7 +1,7 @@
 /* Molly Colour Sort — original game code. No ads, no tracking, no network calls. */
 (function(){
 'use strict';
-const COL={r:'#FF3D57',o:'#FF8C1A',y:'#FFD21F',g:'#2FD06F',b:'#2F7BFF',p:'#9A4DFF',k:'#FF5FC0',t:'#00C4CC',w:'#F2EEE4'};
+const COL={r:'#FF3D57',o:'#FF8C1A',y:'#FFD21F',g:'#2FD06F',b:'#2F7BFF',p:'#9A4DFF',k:'#FF5FC0',t:'#00C4CC',w:'#F2EEE4',n:'#A0632D',l:'#A6E22E',c:'#7FD8FF'};
 const CAP=Rules.CAP, LEVELS=window.LEVELS, $=id=>document.getElementById(id);
 function shade(h,f){h=h.slice(1);let r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
   if(f<0){r*=1+f;g*=1+f;b*=1+f}else{r+=(255-r)*f;g+=(255-g)*f;b+=(255-b)*f}return`rgb(${r|0},${g|0},${b|0})`;}
@@ -39,15 +39,15 @@ function startLevel(i){L=i;state=Rules.fromLevel(LEVELS[i]);history=[];moves=0;s
 /* ---------- layout ---------- */
 function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(3,window.devicePixelRatio||1);W=r.width;H=r.height;
   cv.width=W*DPR;cv.height=H*DPR;if(state)layout();}
-function layout(){const n=state.t.length-2, cols=Math.min(3,n), rows=Math.ceil(n/3);
+function layout(){const n=state.t.length-2, per=n>12?4:3, cols=Math.min(per,n), rows=Math.ceil(n/per);
   const sideW=Math.max(46,Math.min(120,W*0.15)), mx=Math.max(10,W*0.035);
-  const ix0=mx+sideW+W*0.03, ix1=W-mx-sideW-W*0.03, colW=(ix1-ix0)/3;
+  const ix0=mx+sideW+W*0.03, ix1=W-mx-sideW-W*0.03, colW=(ix1-ix0)/per;
   let tw=Math.min(colW*0.66,150);
   const rowH=w=>w*1.75+w*0.45+34; // tube + rim room + shelf
   const avail=H-40-sideW*0.9; if(rows*rowH(tw)>avail)tw=Math.max(30,(avail/rows-34)/2.2);
   const th=tw*1.75, rh=rowH(tw), totalH=rows*rh, top0=Math.max(sideW*0.9+20,(H-totalH)/2+sideW*0.35);
   const tubes=[], shelves=[]; let k=0;
-  for(let r=0;r<rows;r++){const inRow=Math.min(3,n-r*3);const y=top0+r*rh+tw*0.45;
+  for(let r=0;r<rows;r++){const inRow=Math.min(per,n-r*per);const y=top0+r*rh+tw*0.45;
     const rowW=inRow*colW, sx=ix0+(ix1-ix0-rowW)/2;
     for(let c=0;c<inRow;c++){tubes[k]={x:sx+c*colW+(colW-tw)/2,y,w:tw,h:th};k++;}
     shelves.push({x0:ix0-6,x1:ix1+6,y:y+th+2,floor:r===rows-1});}
@@ -165,7 +165,7 @@ function commit(){const{a,b}=anim;history.push(Rules.clone(state));state=Rules.p
   if(Rules.solved(state)&&!won){won=true;setTimeout(winLevel,450);}}
 function winLevel(){const sol=LEVELS[L].sol;const s=moves<=sol?3:moves<=Math.ceil(sol*1.5)+2?2:1;
   prog.stars[L]=Math.max(prog.stars[L]||0,s);prog.unlocked=Math.max(prog.unlocked,Math.min(LEVELS.length,L+2));save();SFX.win();
-  for(let i=0;i<140;i++)confetti.push({x:Math.random()*W,y:-20-Math.random()*H*.5,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,c:Object.values(COL)[i%9]});
+  for(let i=0;i<140;i++)confetti.push({x:Math.random()*W,y:-20-Math.random()*H*.5,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,c:Object.values(COL)[i%12]});
   ['s1','s2','s3'].forEach((id,i)=>{const e=$(id);e.classList.remove('on');if(i<s)setTimeout(()=>e.classList.add('on'),250+i*300);});
   $('btnNext').classList.toggle('hidden',L+1>=LEVELS.length);$('win').classList.remove('hidden');}
 
@@ -198,9 +198,9 @@ function show(id){['map','game'].forEach(s=>$(s).classList.toggle('hidden',s!==i
 function buildMap(){const box=$('mapPath');const N=LEVELS.length,step=150,pad=150,w=box.clientWidth||Math.min(innerWidth,600);
   const h=N*step+pad*2;box.style.height=h+'px';const xs=[.5,.78,.5,.22];const pts=[];for(let i=0;i<N;i++)pts.push([w*xs[i%4],h-pad-i*step]);
   const keys=Object.keys(COL);let html=`<svg width="${w}" height="${h}"><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#05081a" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 10)" opacity=".7"/><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#34407a" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="1 34" opacity=".8"/></svg>`;
-  let tot=0;for(let i=0;i<N;i++){const st=prog.stars[i]||0;tot+=st;const locked=i+1>prog.unlocked,cur=i+1===prog.unlocked;const c=COL[keys[i%9]];
+  let tot=0;for(let i=0;i<N;i++){const st=prog.stars[i]||0;tot+=st;const locked=i+1>prog.unlocked,cur=i+1===prog.unlocked;const c=COL[keys[i%keys.length]];
     const bg=`radial-gradient(circle at 35% 30%, ${shade(c,.55)}, ${c} 50%, ${shade(c,-.45)})`;
-    html+=`<button class="lv${locked?' locked':''}${cur?' cur':''}" data-l="${i}" style="left:${pts[i][0]}px;top:${pts[i][1]}px;background:${bg};${i%9===8?'color:#5d6f92;':''}">${i+1}${st?`<span class="st">${[0,1,2].map(j=>`<i class="${j<st?'on':''}"></i>`).join('')}</span>`:''}</button>`;}
+    html+=`<button class="lv${locked?' locked':''}${cur?' cur':''}" data-l="${i}" style="left:${pts[i][0]}px;top:${pts[i][1]}px;background:${bg};${keys[i%keys.length]==='w'?'color:#5d6f92;':''}">${i+1}${st?`<span class="st">${[0,1,2].map(j=>`<i class="${j<st?'on':''}"></i>`).join('')}</span>`:''}</button>`;}
   box.innerHTML=html;$('starTotal').textContent=tot;
   box.querySelectorAll('.lv').forEach(b=>b.onclick=()=>{audio();const l=+b.dataset.l;if(l+1<=prog.unlocked)startLevel(l);else SFX.nope();});
   const curY=pts[Math.min(N,prog.unlocked)-1][1];$('mapScroll').scrollTop=curY-$('mapScroll').clientHeight/2;}
