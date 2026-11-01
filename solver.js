@@ -33,7 +33,7 @@
       return false;}
     return dfs(start,0)?path.slice():null;}
   function solve(start,limit){limit=limit||300000;return search(start,limit,true,400)||search(start,limit,false,120);}
-  function fromLevel(L){const t=L.c.slice(),side=t.map(()=>false),claim=t.map(()=>null);t.push('','');side.push(true,true);claim.push(null,null);return{t,side,claim};}
+  function fromLevel(L){const t=L.c.slice(),side=t.map(()=>false),claim=t.map(()=>null);return{t,side,claim};}
   const api={CAP,canPour,pour,solved,solve,fromLevel,clone,topRun};
   if(typeof module!=='undefined')module.exports=api;else root.Rules=api;
 })(this);

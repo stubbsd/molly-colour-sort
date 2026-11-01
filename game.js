@@ -39,21 +39,21 @@ function startLevel(i){L=i;state=Rules.fromLevel(LEVELS[i]);history=[];moves=0;s
 /* ---------- layout ---------- */
 function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(3,window.devicePixelRatio||1);W=r.width;H=r.height;
   cv.width=W*DPR;cv.height=H*DPR;if(state)layout();}
-function layout(){const n=state.t.length-2, per=Math.max(3,Math.ceil(n/4)), cols=Math.min(per,n), rows=Math.ceil(n/per);
-  const sideW=Math.max(40,Math.min(120,W*(n>12?0.12:0.15))), mx=Math.max(10,W*0.035);
-  const ix0=mx+sideW+W*0.03, ix1=W-mx-sideW-W*0.03, colW=(ix1-ix0)/per;
-  let tw=Math.min(colW*(per>3?0.74:0.66),150);
+function layout(){const n=state.t.length, per=Math.max(3,Math.ceil(n/4)), cols=Math.min(per,n), rows=Math.ceil(n/per);
+  const sideW=0, mx=Math.max(8,W*0.03);
+  const ix0=mx, ix1=W-mx, colW=(ix1-ix0)/per;
+  let tw=Math.min(colW*0.64,140);
   const rowH=w=>w*1.75+w*0.45+34; // tube + rim room + shelf
-  const avail=H-40-sideW*0.9; if(rows*rowH(tw)>avail)tw=Math.max(30,(avail/rows-34)/2.2);
-  const th=tw*1.75, rh=rowH(tw), totalH=rows*rh, top0=Math.max(sideW*0.9+20,(H-totalH)/2+sideW*0.35);
+  const avail=H-30; if(rows*rowH(tw)>avail)tw=Math.max(30,(avail/rows-34)/2.2);
+  const th=tw*1.75, rh=rowH(tw), totalH=rows*rh, top0=Math.max(16,(H-totalH)/2);
   const tubes=[], shelves=[]; let k=0;
   for(let r=0;r<rows;r++){const inRow=Math.min(per,n-r*per);const y=top0+r*rh+tw*0.45;
     const rowW=inRow*colW, sx=ix0+(ix1-ix0-rowW)/2;
     for(let c=0;c<inRow;c++){tubes[k]={x:sx+c*colW+(colW-tw)/2,y,w:tw,h:th};k++;}
     shelves.push({x0:ix0-6,x1:ix1+6,y:y+th+2,floor:r===rows-1});}
-  const floorY=shelves[shelves.length-1].y, sh=Math.min(floorY-sideW*0.9-10, Math.max(th*2.2,floorY-top0+tw*0.2));
-  tubes[n]={x:mx,y:floorY-2-sh,w:sideW,h:sh,side:true};tubes[n+1]={x:W-mx-sideW,y:floorY-2-sh,w:sideW,h:sh,side:true};
+  const floorY=shelves[shelves.length-1].y;
   lay={tubes,shelves,floorY,tw,mx};}
+function setTubes(arr){state={t:arr.slice(),side:arr.map(()=>false),claim:arr.map(()=>null)};history=[];sel=-1;anim=null;won=false;layout();}
 
 /* ---------- drawing ---------- */
 function bodyPath(x,y,w,h,r,ey,close){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+h-r);ctx.arc(x+r,y+h-r,r,Math.PI,0,true);ctx.lineTo(x+w,y);
@@ -123,11 +123,10 @@ function frame(now){requestAnimationFrame(frame);if(!state||$('game').classList.
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,H);
   // soft stars
   for(let i=0;i<30;i++){const x=(i*137.5)%W,y=(i*89.3)%H;ctx.fillStyle=`rgba(255,255,255,${.15+.25*Math.abs(Math.sin(now/1500+i))})`;ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fill();}
-  lay.shelves.forEach(s=>s.floor?plank(4,W-4,s.y):plank(s.x0,s.x1,s.y));
+  lay.shelves.forEach(s=>plank(s.x0,s.x1,s.y));
   let A=null,P=0;
   if(anim){P=Math.min(1,(now-anim.start)/anim.dur);if(P>=1){commit();}}
   state.t.forEach((str,i)=>{const T=lay.tubes[i];if(!T)return;
-    if(T.side)badge(T,i);
     if(anim&&i===anim.a)return; if(drag&&drag.active&&i===drag.i)return;
     let segs;const pp=anim?Math.max(0,Math.min(1,(P-.3)/.45)):0;
     if(anim&&i===anim.b)segs=segsOf(str,0,[anim.c,anim.n*pp]);else segs=segsOf(str);
@@ -207,7 +206,7 @@ function buildMap(){const box=$('mapPath');const N=LEVELS.length,step=150,pad=15
 function showMap(){show('map');buildMap();}
 
 /* ---------- boot ---------- */
-window.MCS={startLevel,get state(){return state},tryPour,lay:()=>lay,prog:()=>prog,solveNow:()=>Rules.solve(state,60000),forceCommit:()=>{if(anim)commit();}};
+window.MCS={startLevel,setTubes,get state(){return state},tryPour,lay:()=>lay,prog:()=>prog,solveNow:()=>Rules.solve(state,60000),forceCommit:()=>{if(anim)commit();}};
 showMap();requestAnimationFrame(frame);
-if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js');
+if('serviceWorker'in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update());}
 })();
