@@ -58,6 +58,7 @@ function setTubes(arr){state={t:arr.slice(),side:arr.map(()=>false),claim:arr.ma
 /* ---------- drawing ---------- */
 function bodyPath(x,y,w,h,r,ey,close){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+h-r);ctx.arc(x+r,y+h-r,r,Math.PI,0,true);ctx.lineTo(x+w,y);
   if(close)ctx.ellipse(x+r,y,r,ey,0,0,Math.PI,false);}
+function glowA(h,a){if(h[0]!=='#')return h.replace('rgb(','rgba(').replace(')',`,${a})`);h=h.slice(1);return`rgba(${parseInt(h.substr(0,2),16)},${parseInt(h.substr(2,2),16)},${parseInt(h.substr(4,2),16)},${a})`;}
 function hgrad(x,w,stops){const g=ctx.createLinearGradient(x,0,x+w,0);stops.forEach(s=>g.addColorStop(s[0],s[1]));return g;}
 /* segs: array of [colour, units] bottom->top (units may be fractional) */
 function drawTube(x,y,w,h,segs,opt){opt=opt||{};const r=w/2,ey=w*0.17,cx=x+r,t=Math.max(3,w*0.075),cap=CAP;
@@ -70,9 +71,12 @@ function drawTube(x,y,w,h,segs,opt){opt=opt||{};const r=w/2,ey=w*0.17,cx=x+r,t=M
   ctx.fillStyle='rgba(184,201,226,.28)';ctx.beginPath();ctx.ellipse(cx,y,ir,iey,0,0,7);ctx.fill();
   // liquid
   const usable=h-ey-r*0.35-t-4, lh=usable/cap, bottom=y+h-t-2; let level=0, topC=null;
+  // luminous halo behind the glass (cheap radial gradients, additive)
+  {let lv=0;ctx.save();ctx.globalCompositeOperation='lighter';for(const[c,u]of segs){if(u<=0.001)continue;const col=COL[c],my=bottom-(lv+u/2)*lh,R=Math.max(w*1.05,u*lh*1.1);
+    const g=ctx.createRadialGradient(cx,my,0,cx,my,R);g.addColorStop(0,glowA(col,.55));g.addColorStop(.5,glowA(col,.2));g.addColorStop(1,glowA(col,0));ctx.fillStyle=g;ctx.fillRect(cx-R,my-R,2*R,2*R);lv+=u;}ctx.restore();}
   ctx.save();bodyPath(ix,y,iw,h-t,ir,iey,true);ctx.clip();
   for(const[c,u]of segs){if(u<=0.001)continue;const y1=bottom-(level+u)*lh, y0=level===0?y+h+5:bottom-level*lh+1;const col=COL[c];
-    ctx.fillStyle=hgrad(x,w,[[0,shade(col,-.45)],[.25,col],[.45,shade(col,.35)],[.75,col],[1,shade(col,-.5)]]);ctx.fillRect(x,y1,w,y0-y1);level+=u;topC=c;}
+    ctx.fillStyle=hgrad(x,w,[[0,shade(col,-.45)],[.25,col],[.45,shade(col,.35)],[.75,col],[1,shade(col,-.5)]]);ctx.fillRect(x,y1,w,y0-y1);ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=hgrad(x,w,[[.2,glowA(col,0)],[.42,glowA(shade(col,.4),.32)],[.58,glowA(shade(col,.4),.32)],[.8,glowA(col,0)]]);ctx.fillRect(x,y1,w,y0-y1);ctx.restore();level+=u;topC=c;}
   ctx.restore();
   if(topC){const ly=bottom-level*lh,col=COL[topC];
     const g=ctx.createRadialGradient(cx,ly+ey*.2,1,cx,ly,ir);g.addColorStop(0,shade(col,.15));g.addColorStop(.8,shade(col,.45));g.addColorStop(1,shade(col,.7));

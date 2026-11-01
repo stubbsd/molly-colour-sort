@@ -1,6 +1,6 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 html,body{margin:0;height:100%;overflow:hidden;background:#0F1730;font-family:"Arial Rounded MT Bold",Arial,sans-serif;touch-action:none}
-body{background:linear-gradient(#1B2550,#16213F 60%,#0F1730)}
+body{background:url(hazard-bg.svg) 0 0/300px auto repeat,linear-gradient(#1B2550,#16213F 60%,#0F1730)}
 #app,.screen{position:fixed;inset:0}
 .hidden{display:none!important}
 .bar{position:absolute;left:0;right:0;top:0;height:calc(90px + env(safe-area-inset-top));padding:calc(12px + env(safe-area-inset-top)) 16px 0;display:flex;align-items:flex-start;justify-content:space-between;z-index:2}
