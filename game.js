@@ -1,7 +1,7 @@
 /* Molly Colour Sort — original game code. No ads, no tracking, no network calls. */
 (function(){
 'use strict';
-const COL={r:'#FF3D57',o:'#FF8C1A',y:'#FFD21F',g:'#2FD06F',b:'#2F7BFF',p:'#9A4DFF',k:'#FF5FC0',t:'#00C4CC',w:'#F2EEE4',n:'#A0632D',l:'#A6E22E',c:'#7FD8FF'};
+const COL={r:'#FF3D57',o:'#FF8C1A',y:'#FFD21F',g:'#2FD06F',b:'#2F7BFF',p:'#9A4DFF',k:'#FF5FC0',t:'#00C4CC',w:'#F2EEE4',n:'#A0632D',l:'#A6E22E',c:'#7FD8FF',v:'#CDB4FF',m:'#FFB38A',s:'#B4BECF',d:'#B0123E'};
 const CAP=Rules.CAP, LEVELS=window.LEVELS, $=id=>document.getElementById(id);
 function shade(h,f){h=h.slice(1);let r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
   if(f<0){r*=1+f;g*=1+f;b*=1+f}else{r+=(255-r)*f;g+=(255-g)*f;b+=(255-b)*f}return`rgb(${r|0},${g|0},${b|0})`;}
@@ -22,7 +22,7 @@ function tone(type,f1,f2,t,dur,vol,filt){const a=audio();if(!a)return;const o=a.
   node.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+0.05);}
 const SFX={
   glug(n,fill){const a=audio();if(!a)return;const t=a.currentTime;const k=2+n*2;
-    for(let i=0;i<k;i++){const f=150+fill*55+i*8+Math.random()*25;tone('sine',f,f*2.4,t+i*0.12,0.09,0.32,1400);}},
+    for(let i=0;i<k;i++){const f=150+fill*55+i*8+Math.random()*25;tone("sine",f,f*2.4,t+i*0.065,0.06,0.32,1400);}},
   pick(){const a=audio();if(!a)return;tone('triangle',520,780,a.currentTime,0.09,0.15);},
   nope(){const a=audio();if(!a)return;const t=a.currentTime;tone('sine',300,230,t,0.12,0.14);tone('sine',260,200,t+0.12,0.14,0.12);},
   done(){const a=audio();if(!a)return;const t=a.currentTime;tone('triangle',880,1320,t,0.18,0.12);},
@@ -39,10 +39,10 @@ function startLevel(i){L=i;state=Rules.fromLevel(LEVELS[i]);history=[];moves=0;s
 /* ---------- layout ---------- */
 function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(3,window.devicePixelRatio||1);W=r.width;H=r.height;
   cv.width=W*DPR;cv.height=H*DPR;if(state)layout();}
-function layout(){const n=state.t.length-2, per=n>12?4:3, cols=Math.min(per,n), rows=Math.ceil(n/per);
-  const sideW=Math.max(46,Math.min(120,W*0.15)), mx=Math.max(10,W*0.035);
+function layout(){const n=state.t.length-2, per=Math.max(3,Math.ceil(n/4)), cols=Math.min(per,n), rows=Math.ceil(n/per);
+  const sideW=Math.max(40,Math.min(120,W*(n>12?0.12:0.15))), mx=Math.max(10,W*0.035);
   const ix0=mx+sideW+W*0.03, ix1=W-mx-sideW-W*0.03, colW=(ix1-ix0)/per;
-  let tw=Math.min(colW*0.66,150);
+  let tw=Math.min(colW*(per>3?0.74:0.66),150);
   const rowH=w=>w*1.75+w*0.45+34; // tube + rim room + shelf
   const avail=H-40-sideW*0.9; if(rows*rowH(tw)>avail)tw=Math.max(30,(avail/rows-34)/2.2);
   const th=tw*1.75, rh=rowH(tw), totalH=rows*rh, top0=Math.max(sideW*0.9+20,(H-totalH)/2+sideW*0.35);
@@ -158,14 +158,14 @@ function frame(now){requestAnimationFrame(frame);if(!state||$('game').classList.
 /* ---------- moves ---------- */
 function tryPour(a,b){const n=Rules.canPour(state,a,b);if(!n){shake={i:b,start:performance.now()};SFX.nope();return false;}
   const fromLift=(sel===a)?lay.tubes[a].w*0.32:0;
-  anim={a,b,n,c:state.t[a].slice(-1),start:performance.now(),dur:1050+n*170,fromLift};sel=-1;hint=null;
-  setTimeout(()=>SFX.glug(n,state.t[b].length),300);return true;}
+  anim={a,b,n,c:state.t[a].slice(-1),start:performance.now(),dur:520+n*70,fromLift};sel=-1;hint=null;
+  setTimeout(()=>SFX.glug(n,state.t[b].length),150);return true;}
 function commit(){const{a,b}=anim;history.push(Rules.clone(state));state=Rules.pour(state,a,b);moves++;anim=null;
   const T=state.t[b];if(T.length===CAP&&/^(.)\1*$/.test(T))SFX.done();
-  if(Rules.solved(state)&&!won){won=true;setTimeout(winLevel,450);}}
+  if(Rules.solved(state)&&!won){won=true;setTimeout(winLevel,300);}}
 function winLevel(){const sol=LEVELS[L].sol;const s=moves<=sol?3:moves<=Math.ceil(sol*1.5)+2?2:1;
   prog.stars[L]=Math.max(prog.stars[L]||0,s);prog.unlocked=Math.max(prog.unlocked,Math.min(LEVELS.length,L+2));save();SFX.win();
-  for(let i=0;i<140;i++)confetti.push({x:Math.random()*W,y:-20-Math.random()*H*.5,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,c:Object.values(COL)[i%12]});
+  for(let i=0;i<140;i++)confetti.push({x:Math.random()*W,y:-20-Math.random()*H*.5,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,c:Object.values(COL)[i%16]});
   ['s1','s2','s3'].forEach((id,i)=>{const e=$(id);e.classList.remove('on');if(i<s)setTimeout(()=>e.classList.add('on'),250+i*300);});
   $('btnNext').classList.toggle('hidden',L+1>=LEVELS.length);$('win').classList.remove('hidden');}
 
