@@ -9,7 +9,7 @@ function shade(h,f){h=h.slice(1);let r=parseInt(h.substr(0,2),16),g=parseInt(h.s
 /* ---------- progress (local only) ---------- */
 const SAVE='mollyColourSort.v1';
 let prog;try{prog=JSON.parse(localStorage.getItem(SAVE))}catch(e){}
-if(!prog||!prog.stars)prog={unlocked:1,stars:{}};if(!prog.best)prog.best={};
+if(!prog||!prog.stars)prog={unlocked:1,stars:{}};if(!prog.left)prog.left={};
 function save(){try{localStorage.setItem(SAVE,JSON.stringify(prog))}catch(e){}}
 
 /* ---------- sound (synthesised, original) ---------- */
@@ -30,6 +30,7 @@ const SFX={
   pop(){const a=audio();if(!a)return;const t=a.currentTime;tone('sine',140,40,t,0.5,0.6,900);tone('triangle',320,85,t,0.25,0.32,1600);
     try{const n=Math.floor(a.sampleRate*0.4),buf=a.createBuffer(1,n,a.sampleRate),d=buf.getChannelData(0);for(let i=0;i<n;i++){const e=Math.pow(1-i/n,2.5);d[i]=(Math.random()<.06?(Math.random()*2-1):(Math.random()*2-1)*.25)*e;}
       const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();src.buffer=buf;f.type='bandpass';f.frequency.value=2200;f.Q.value=.7;g.gain.value=0.35;src.connect(f);f.connect(g);g.connect(a.destination);src.start(t+0.01);}catch(e){}[1319,1568,2093].forEach((f,i)=>tone('triangle',f,f,t+0.06+i*0.07,0.22,0.05));},
+  aww(){const a=audio();if(!a)return;const t=a.currentTime;tone('sine',440,330,t,0.32,0.13,1200);tone('sine',350,247,t+0.3,0.5,0.12,1000);},
   win(){const a=audio();if(!a)return;const t=a.currentTime;[523,659,784,1047,1319].forEach((f,i)=>{tone('triangle',f,f*1.01,t+i*0.13,0.35,0.2);tone('sine',f*2,f*2,t+i*0.13,0.25,0.05)});},
 };
 
@@ -37,13 +38,20 @@ const SFX={
 const RX_BUB=1350,RX_REF=380,RX_ALL=RX_BUB+RX_REF,SPARK_CAP=400;let rx=[],sparks=[],winT=0,rings=[],bangShake=0,ringHoldNext=null;
 const sealedStr=x=>x.length===CAP&&/^(.)\1*$/.test(x);
 // count-up level timer: starts on the first pour, pauses when hidden / on the win panel / on the map, resets on restart; undo keeps it
-let tAcc=0,tRun=0,tStarted=false,tShown='';
+// COUNTDOWN: limit from solution length (generous), starts on first pour, pauses when hidden / on map / during reactions / win,
+// resets on restart, undo never adds time. At 0:00 a soft 'aww' and a gentle try-again panel; progress is never lost.
+function limitOf(i){return Math.max(60,Math.ceil((30+7*LEVELS[i].sol)/15)*15)*1000;}
+let tAcc=0,tRun=0,tStarted=false,tShown='',timedOut=false,tLow=false;
 function tNow(){return tAcc+(tRun?performance.now()-tRun:0);}
 function tPause(){if(tRun){tAcc+=performance.now()-tRun;tRun=0;}}
-function tResume(){if(tStarted&&!tRun&&!won&&!document.hidden&&!$('game').classList.contains('hidden'))tRun=performance.now();}
-function tReset(){tAcc=0;tRun=0;tStarted=false;tShow();}
+function tLeft(){return Math.max(0,limitOf(L)-tNow());}
+function tResume(){if(tStarted&&!tRun&&!won&&!timedOut&&!rx.length&&!document.hidden&&!$('game').classList.contains('hidden'))tRun=performance.now();}
+function tReset(){tAcc=0;tRun=0;tStarted=false;timedOut=false;$('lose').classList.add('hidden');tShow();}
 function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
-function tShow(){const t=fmt(tNow());if(t!==tShown){tShown=t;$('timerTxt').textContent=t;}}
+function tShow(){const left=tLeft(),t=fmt(Math.ceil(left/1000)*1000);if(t!==tShown){tShown=t;$('timerTxt').textContent=t;}
+  const low=tStarted&&left<=10000&&!won;if(low!==tLow){tLow=low;$('timer').classList.toggle('low',low);}
+  if(tStarted&&left<=0&&!won&&!timedOut&&!anim)timeOut();}
+function timeOut(){timedOut=true;tPause();sel=-1;drag=null;hint=null;SFX.aww();$('lose').classList.remove('hidden');}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)tPause();else tResume();});
 let L=0, state=null, history=[], moves=0, sel=-1, anim=null, drag=null, hint=null, shake=null, won=false, confetti=[];
 const cv=$('cv'), ctx=cv.getContext('2d'); let W=0,H=0,DPR=1, lay=null;
@@ -175,7 +183,7 @@ function easeIO(p){return p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2}
 function pourPose(a,b){const A=lay.tubes[a],B=lay.tubes[b];const right=(B.x+B.w/2)>W/2;const ang=(right?1:-1)*1.75;
   const mx=B.x+B.w/2+(right?-1:1)*B.w*0.18, my=B.y-B.w*0.55;return{mx,my,ang};}
 
-function frame(now){requestAnimationFrame(frame);if(!state||$('game').classList.contains('hidden'))return;tShow();
+function frame(now){requestAnimationFrame(frame);if(!state||$('game').classList.contains('hidden'))return;if(rx.length)tPause();else tResume();tShow();
   ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,H);{const q=(now-bangShake)/220;if(bangShake&&q<1){const m=8*(1-q);ctx.translate(Math.sin(now/13)*m,Math.cos(now/17)*m*.7);}}
   // soft stars
   for(let i=0;i<30;i++){const x=(i*137.5)%W,y=(i*89.3)%H;ctx.fillStyle=`rgba(255,255,255,${.15+.25*Math.abs(Math.sin(now/1500+i))})`;ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fill();}
@@ -230,7 +238,7 @@ function commit(){const{a,b}=anim;history.push(Rules.clone(state));state=Rules.p
   // win waits until every running reaction (incl. the one from this final move) has popped and re-formed
   if(Rules.solved(state)&&!won){won=true;tPause();tShow();const now=performance.now();let wait=300;rx.forEach(r=>{wait=Math.max(wait,RX_ALL-(now-r.start)+350);});clearTimeout(winT);winT=setTimeout(winLevel,wait);}}
 function winLevel(){const sol=LEVELS[L].sol;const s=moves<=sol?3:moves<=Math.ceil(sol*1.5)+2?2:1;
-  prog.stars[L]=Math.max(prog.stars[L]||0,s);const tm=Math.max(1000,Math.floor(tNow()/1000)*1000),prev=prog.best[L],nb=!prev||tm<prev;if(nb)prog.best[L]=tm;
+  prog.stars[L]=Math.max(prog.stars[L]||0,s);const tm=Math.ceil(tLeft()/1000)*1000,prev=prog.left[L],nb=prev==null||tm>prev;if(nb)prog.left[L]=tm;
   $('winTimeTxt').textContent=fmt(tm);$('newBest').classList.toggle('hidden',!nb);prog.unlocked=Math.max(prog.unlocked,Math.min(LEVELS.length,L+2));save();SFX.win();
   for(let i=0;i<140;i++)confetti.push({x:Math.random()*W,y:-20-Math.random()*H*.5,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,c:Object.values(COL)[i%16]});
   ['s1','s2','s3'].forEach((id,i)=>{const e=$(id);e.classList.remove('on');if(i<s)setTimeout(()=>e.classList.add('on'),250+i*300);});
@@ -239,11 +247,11 @@ function winLevel(){const sol=LEVELS[L].sol;const s=moves<=sol?3:moves<=Math.cei
 /* ---------- input ---------- */
 function hitTube(x,y,except){let best=-1;lay.tubes.forEach((T,i)=>{if(i===except)return;if(x>=T.x-14&&x<=T.x+T.w+14&&y>=T.y-T.w*0.7-20&&y<=T.y+T.h+14)best=i;});return best;}
 function pos(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
-cv.addEventListener('pointerdown',e=>{audio();if(anim||won)return;const p=pos(e);const i=hitTube(p.x,p.y);cv.setPointerCapture(e.pointerId);
+cv.addEventListener('pointerdown',e=>{audio();if(anim||won||timedOut)return;const p=pos(e);const i=hitTube(p.x,p.y);cv.setPointerCapture(e.pointerId);
   drag={i,sx:p.x,sy:p.y,x:p.x,y:p.y,active:false};});
 cv.addEventListener('pointermove',e=>{if(!drag||drag.i<0)return;const p=pos(e);drag.x=p.x;drag.y=p.y;
   if(!drag.active&&Math.hypot(p.x-drag.sx,p.y-drag.sy)>14&&state.t[drag.i].length&&!sealedStr(state.t[drag.i])&&(sel<0||sel===drag.i)){drag.active=true;sel=-1;SFX.pick();}});
-function up(e){if(!drag)return;const d=drag;drag=null;if(anim||won)return;const p=pos(e);
+function up(e){if(!drag)return;const d=drag;drag=null;if(anim||won||timedOut)return;const p=pos(e);
   if(d.active){const t=hitTube(p.x,p.y,d.i);if(t>=0)tryPour(d.i,t);return;}
   const i=d.i;if(i<0){sel=-1;return;}
   if(sel<0){if(state.t[i].length&&!sealedStr(state.t[i])){sel=i;SFX.pick();}else{shake={i,start:performance.now()};}}
@@ -251,12 +259,12 @@ function up(e){if(!drag)return;const d=drag;drag=null;if(anim||won)return;const 
   else{const a=sel;if(!tryPour(a,i)){sel=-1;}}}
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>{drag=null});
 
-$('btnUndo').onclick=()=>{audio();if(anim)return;if(history.length){state=history.pop();moves++;sel=-1;won=false;clearTimeout(winT);tResume();rx=rx.filter(r=>sealedStr(state.t[r.i]||''));$('win').classList.add('hidden');SFX.pick();}};
+$('btnUndo').onclick=()=>{audio();if(anim||timedOut)return;if(history.length){state=history.pop();moves++;sel=-1;won=false;clearTimeout(winT);tResume();rx=rx.filter(r=>sealedStr(state.t[r.i]||''));$('win').classList.add('hidden');SFX.pick();}};
 $('btnRestart').onclick=()=>{audio();if(anim)return;startLevel(L);};
-$('btnHint').onclick=()=>{audio();if(anim||won)return;const sol=Rules.solve(state,60000);
+$('btnHint').onclick=()=>{audio();if(anim||won||timedOut)return;const sol=Rules.solve(state,60000);
   if(sol&&sol.length){hint={a:sol[0][0],b:sol[0][1],start:performance.now()};sel=-1;SFX.pick();}
   else{const u=$('btnUndo');u.classList.remove('pulse');void u.offsetWidth;u.classList.add('pulse');}};
-$('btnHome').onclick=()=>{audio();tPause();showMap();};$('btnWinMap').onclick=()=>{showMap();};
+$('btnHome').onclick=()=>{audio();tPause();showMap();};$('btnWinMap').onclick=()=>{showMap();};$('btnLoseMap').onclick=()=>{audio();showMap();};$('btnLoseRetry').onclick=()=>{audio();startLevel(L);};
 $('btnNext').onclick=()=>{startLevel(L+1);};
 window.addEventListener('resize',()=>{resize();if(!$('map').classList.contains('hidden'))buildMap();});
 
@@ -267,14 +275,14 @@ function buildMap(){const box=$('mapPath');const N=LEVELS.length,step=150,pad=15
   const keys=Object.keys(COL);let html=`<svg width="${w}" height="${h}"><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#05081a" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 10)" opacity=".7"/><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#34407a" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/><path d="M${pts.map(p=>p.join(' ')).join(' L')}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="1 34" opacity=".8"/></svg>`;
   let tot=0;for(let i=0;i<N;i++){const st=prog.stars[i]||0;tot+=st;const locked=i+1>prog.unlocked,cur=i+1===prog.unlocked;const c=COL[keys[i%keys.length]];
     const bg=`radial-gradient(circle at 35% 30%, ${shade(c,.55)}, ${c} 50%, ${shade(c,-.45)})`;
-    html+=`<button class="lv${locked?' locked':''}${cur?' cur':''}" data-l="${i}" style="left:${pts[i][0]}px;top:${pts[i][1]}px;background:${bg};${keys[i%keys.length]==='w'?'color:#5d6f92;':''}">${i+1}${prog.best[i]?`<span class="bt">${fmt(prog.best[i])}</span>`:''}${st?`<span class="st">${[0,1,2].map(j=>`<i class="${j<st?'on':''}"></i>`).join('')}</span>`:''}</button>`;}
+    html+=`<button class="lv${locked?' locked':''}${cur?' cur':''}" data-l="${i}" style="left:${pts[i][0]}px;top:${pts[i][1]}px;background:${bg};${keys[i%keys.length]==='w'?'color:#5d6f92;':''}">${i+1}${prog.left[i]!=null?`<span class="bt">${fmt(prog.left[i])}</span>`:''}${st?`<span class="st">${[0,1,2].map(j=>`<i class="${j<st?'on':''}"></i>`).join('')}</span>`:''}</button>`;}
   box.innerHTML=html;$('starTotal').textContent=tot;
   box.querySelectorAll('.lv').forEach(b=>b.onclick=()=>{audio();const l=+b.dataset.l;if(l+1<=prog.unlocked)startLevel(l);else SFX.nope();});
   const curY=pts[Math.min(N,prog.unlocked)-1][1];$('mapScroll').scrollTop=curY-$('mapScroll').clientHeight/2;}
 function showMap(){show('map');buildMap();}
 
 /* ---------- boot ---------- */
-window.MCS={startLevel,setTubes,get state(){return state},tryPour,lay:()=>lay,prog:()=>prog,solveNow:()=>Rules.solve(state,60000),timer:()=>({ms:tNow(),running:!!tRun,started:tStarted,text:$('timerTxt').textContent}),best:()=>prog.best,forceCommit:()=>{if(anim)commit();},rx:()=>rx.length,rxFired:()=>rxFired,rxSeek:ms=>rx.forEach(r=>{r.start=performance.now()-ms;}),rings:()=>JSON.stringify(rings),ringHold:ms=>{ringHoldNext=ms;rings.forEach(g=>{g.hold=ms;});},rxHold:ms=>rx.forEach(r=>{r.hold=ms;}),sparks:()=>sparks.length};
+window.MCS={startLevel,setTubes,get state(){return state},tryPour,lay:()=>lay,prog:()=>prog,solveNow:()=>Rules.solve(state,60000),limit:i=>limitOf(i==null?L:i),setLeft:ms=>{tAcc=limitOf(L)-ms;if(tRun)tRun=performance.now();},timer:()=>({ms:tNow(),left:tLeft(),timedOut,low:tLow,running:!!tRun,started:tStarted,text:$('timerTxt').textContent}),best:()=>prog.left,forceCommit:()=>{if(anim)commit();},rx:()=>rx.length,rxFired:()=>rxFired,rxSeek:ms=>rx.forEach(r=>{r.start=performance.now()-ms;}),rings:()=>JSON.stringify(rings),ringHold:ms=>{ringHoldNext=ms;rings.forEach(g=>{g.hold=ms;});},rxHold:ms=>rx.forEach(r=>{r.hold=ms;}),sparks:()=>sparks.length};
 showMap();requestAnimationFrame(frame);
 if('serviceWorker'in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update());}
 })();
