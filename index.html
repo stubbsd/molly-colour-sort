@@ -26,7 +26,7 @@
     <div class="bar">
       <button id="btnHome" class="round grey" aria-label="map"><svg viewBox="0 0 60 60"><path d="M10 30 L30 12 L50 30 V50 H36 V38 H24 V50 H10Z" fill="#fff"/></svg></button>
       <div id="levelPill">1</div>
-      <div class="spacer"></div>
+      <div id="timer" aria-label="time"><span class="clk"></span><b id="timerTxt">0:00</b></div>
     </div>
     <canvas id="cv"></canvas>
     <div class="controls">
@@ -37,6 +37,7 @@
     <div id="win" class="hidden">
       <div class="card">
         <div class="stars"><span class="bigstar" id="s1"></span><span class="bigstar mid" id="s2"></span><span class="bigstar" id="s3"></span></div>
+        <div id="winTime"><span class="clk"></span><b id="winTimeTxt">0:00</b><span id="newBest" class="hidden"><i></i></span></div>
         <div class="dots"><i style="background:#FF3D57"></i><i style="background:#FF8C1A"></i><i style="background:#FFD21F"></i><i style="background:#2FD06F"></i><i style="background:#2F7BFF"></i></div>
         <div class="row"><button id="btnWinMap" class="round grey" aria-label="map"><svg viewBox="0 0 60 60"><path d="M10 30 L30 12 L50 30 V50 H36 V38 H24 V50 H10Z" fill="#fff"/></svg></button>
         <button id="btnNext" class="round green big" aria-label="next"><svg viewBox="0 0 60 60"><path d="M20 12 L48 30 L20 48Z" fill="#fff"/></svg></button></div>
